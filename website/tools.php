@@ -1,7 +1,6 @@
 <?php
 $encryption_key = "awesome123";
 
-
 function aes128_cbc_encrypt($key, $data, $iv) {
     if(16 !== strlen($key)) $key = hash('MD5', $key, true);
     if(16 !== strlen($iv)) $iv = hash('MD5', $iv, true);
@@ -63,12 +62,13 @@ function pkcs7pad($plaintext, $blocksize)
  */
 function pkcs7unpad($padded, $blocksize)
 {
+    global $ret_msgs;
     $l = strlen($padded);
 
     if ($l % $blocksize != 0)
     {
-        echo("invalid padding");
-        // echo("Padded plaintext cannot be divided by the block size");
+        send_error($ret_msgs["invalid-padding"]);
+        // send_error("Padded plaintext cannot be divided by the block size");
         exit();
     }
 
@@ -76,15 +76,15 @@ function pkcs7unpad($padded, $blocksize)
 
     if ($padsize === 0)
     {
-        echo("invalid padding");
-        // echo("Zero padding found instead of PKCS#7 padding");
+        send_error($ret_msgs["invalid-padding"]);
+        // send_error("Zero padding found instead of PKCS#7 padding");
         exit();
     }
 
     if ($padsize > $blocksize)
     {
-        echo("invalid padding");
-        // echo("Incorrect amount of PKCS#7 padding for blocksize");
+        send_error($ret_msgs["invalid-padding"]);
+        // send_error("Incorrect amount of PKCS#7 padding for blocksize");
         exit();
     }
 
@@ -92,10 +92,12 @@ function pkcs7unpad($padded, $blocksize)
     $padding = substr($padded, -1 * $padsize);
     if (substr_count($padding, chr($padsize)) != $padsize)
     {
-        echo("invalid padding");
-        // echo("Invalid PKCS#7 padding encountered");
+        send_error($ret_msgs["invalid-padding"]);
+        // send_error("Invalid PKCS#7 padding encountered");
         exit();
     }
+
+    if ($ret_msgs["invalid-padding"] === $ret_msgs["invalid-attempt"]) sleep(1);
 
     return substr($padded, 0, $l - $padsize);
 }
@@ -127,6 +129,16 @@ function get_captcha_image($captcha_text) {
     $imagedata = ob_get_contents();
     ob_end_clean();
     return $imagedata;
+}
+
+function send_error($msg) {
+    redirect('http://localhost:8888/register-get.php?msg='.urlencode($msg));
+}
+
+function redirect($url, $statusCode = 303)
+{
+   header('Location: ' . $url, true, $statusCode);
+   die();
 }
 
 ?>

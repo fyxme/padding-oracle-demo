@@ -1,7 +1,9 @@
 <?php
+include 'constants.php';
+
+global $ret_msgs;
 
 include 'tools.php';
-
 
 $ciphertext = base64_decode($_GET["captcha-verification"]);
 
@@ -12,20 +14,16 @@ $ciphertext = substr($ciphertext, $iv_size);
 
 $verification = aes128_cbc_decrypt($encryption_key, $ciphertext, $iv);
 
-echo "<br>";
 
 $attempt = $_GET["captcha-attempt"];
-
-//
-// $a = $_GET["captcha-verification"];
-// $b = $_GET["captcha-attempt"];
-
-// $encrypted = aes128Encrypt($b, "abcd123");
+$name = $_GET["name"];
+$email = $_GET["email"];
+$password = $_GET["password"];
 
 if ($attempt === $verification) {
-    echo "valid captcha";
-    exit();
+    // redirect to vote.html
+    redirect("http://localhost:8888/vote.html");
 }
 
-echo "invalid captcha";
+send_error($ret_msgs["invalid-attempt"]);
 ?>

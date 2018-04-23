@@ -19,6 +19,9 @@ $iv = mcrypt_create_iv($iv_size, MCRYPT_DEV_RANDOM);
 // cipher verification
 $cv = base64_encode($iv.aes128_cbc_encrypt($encryption_key, $captcha_text, $iv));
 
+
+$msg =  $_GET["msg"];
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -43,6 +46,11 @@ $cv = base64_encode($iv.aes128_cbc_encrypt($encryption_key, $captcha_text, $iv))
 	<body>
 		<div class="container">
 			<div class="row main">
+                <?php if($msg): ?>
+                                <div class="alert alert-danger text-center" role="alert" style="font-size:2em">
+                                  <b><?php echo $msg ?></b>
+                                </div>
+                <?php endif ?>
 				<div class="main-login main-center">
                 <div style="text-align:center">
                     <img src="img/lock.png" alt="" width="100px">
@@ -71,10 +79,19 @@ $cv = base64_encode($iv.aes128_cbc_encrypt($encryption_key, $captcha_text, $iv))
 						</div>
 
                         <div class="form-group">
+                            <label for="email" class="cols-sm-2 control-label">Password</label>
+                            <div class="cols-sm-10">
+                                <div class="input-group">
+                                    <span class="input-group-addon"><i class="fa fa-lock fa" aria-hidden="true"></i></span>
+                                    <input type="password" class="form-control" name="password" id="password"  placeholder="Password"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
                             <label for="email" class="cols-sm-2 control-label">Verification code</label>
                             <p>To make sure you're not a robot, please enter the verification code below</p>
                             <div class="text-center" style="margin-bottom:5px">
-                                <!-- DEBUG: [Remove before launching webiste] To test captcha codes use this route : /test-catpcha.php with parameters "captcha-attempt" and "captcha-verification" -->
                                 <img id="captcha-img" src="data:image/png;base64,<?php echo base64_encode($imagedata)?>">
                                 <input id="captcha-verification" type="hidden" name="captcha-verification" value="<?php echo $cv?>">
                             </div>
@@ -86,7 +103,6 @@ $cv = base64_encode($iv.aes128_cbc_encrypt($encryption_key, $captcha_text, $iv))
                                 </div>
                             </div>
                         </div>
-
 
 						<div class="form-group ">
                             <input id="button" class="btn btn-primary btn-lg btn-block login-button" type="submit" type="button" name="" value="Register to vote">
