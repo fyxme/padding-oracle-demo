@@ -21,7 +21,7 @@ $email = $_GET["email"];
 $password = $_GET["password"];
 
 if ($attempt === $verification) {
-    // redirect to vote.html
+    // the verification is valid -> let the user vote
     redirect("http://localhost:8888/vote.html");
 }
 
