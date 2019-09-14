@@ -242,6 +242,6 @@ if __name__ == '__main__':
     parser.add_argument('-v','-verification-txt', default="captcha-verification")
     parser.add_argument('-i', '-captcha-image', default="captcha-img")
     parser.add_argument('-o', '-oracle', default="http://localhost:8888/verify-captcha.php?captcha-verification=")
-    parser.add_argument('-t', '-text-verification', default="Invalid padding")
+    parser.add_argument('-t', '-text-verification', default="invalid padding")
 
     main()
